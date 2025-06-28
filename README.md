@@ -13,7 +13,7 @@ An AI-powered chatbot that helps students get accurate, document-based answers t
 - 🧠 (Upcoming) Suggested/auto-generated question interface
 
 ## 🧰 Tech Stack
- --------------------------------------------------------------
+
 | Component       | Technology                                 |
 |-----------------|--------------------------------------------|
 | LLM             | `phi` via Ollama                           |
@@ -21,7 +21,7 @@ An AI-powered chatbot that helps students get accurate, document-based answers t
 | Vector Store    | FAISS                                      |
 | Frameworks      | LangChain, Streamlit                       |
 | Tools           | PyTorch, Sentence Transformers             |
- --------------------------------------------------------------
+
 
  ## 📂 Project Structure
 ```
