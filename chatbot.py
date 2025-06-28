@@ -7,7 +7,7 @@ from langchain.prompts import PromptTemplate
 def build_chain(db_path="vector_db", model_name="phi"):
     embeddings = HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2",
-        model_kwargs={"device": "cpu"}
+        model_kwargs={"device": "cuda"}
     )
 
     db = FAISS.load_local(db_path, embeddings, allow_dangerous_deserialization=True)
