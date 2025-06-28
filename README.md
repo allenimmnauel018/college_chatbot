@@ -5,7 +5,7 @@ An AI-powered chatbot that helps students get accurate, document-based answers t
 
 - 💬 Ask questions in natural language
 - 📄 Retrieves answers from college documents (PDFs) using LangChain RetrievalQA
-- ⚡ Runs **locally** using lightweight `phi` model via [Ollama] (https://ollama.com/) (`phi` model)
+- ⚡ Runs **locally** using lightweight `phi` model via [Ollama](https://ollama.com/) (`phi` model)
 - 🔎 FAISS-powered document search
 - 🔤 Spell-check support
 - 🤖 “I don’t know” fallback for unknown queries
@@ -24,7 +24,7 @@ An AI-powered chatbot that helps students get accurate, document-based answers t
  --------------------------------------------------------------
 
  ## 📂 Project Structure
-
+```
 college_chatbot/
 ├── data/ # College documents (PDF)
 ├── app.py # Streamlit interface
@@ -33,7 +33,7 @@ college_chatbot/
 ├── vector_db/ # Saved FAISS index
 ├── requirements.txt    
 └── README.md
-
+```
 ## 🧪 How to Run
 ### 🔧 Prerequisites
 
