@@ -31,7 +31,8 @@ college_chatbot/
 ├── chatbot.py # LLM + RetrievalQA chain
 ├── ingest.py # PDF to vector DB embedding
 ├── vector_db/ # Saved FAISS index
-├── requirements.txt    
+├── requirements.txt
+├── LICENSE
 └── README.md
 ```
 ## 🧪 How to Run
