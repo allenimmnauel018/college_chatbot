@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.pip/
+*.egg-info/
+*.egg
+*.log
+
+# LangChain/Vector DB
+vector_db/
+*.faiss
+*.pkl
+*.json
+
+# Streamlit
+.streamlit/config.toml
+.streamlit/*.json
+
+# VSCode
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# System
+.DS_Store
+Thumbs.db
+
+# ollama model downloads (optional)
+~/.ollama/

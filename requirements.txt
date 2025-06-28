@@ -1,7 +1,11 @@
-torch
-transformers
+streamlit
 langchain
 langchain-community
-sentence-transformers
+langchain-huggingface
+langchain-ollama
 faiss-cpu
-streamlit
+sentence-transformers
+transformers
+torch
+pypdf
+pyspellchecker
