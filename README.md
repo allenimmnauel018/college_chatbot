@@ -39,7 +39,7 @@ college_chatbot/
 ### 🔧 Prerequisites
 
 - Python 3.10+
-- GPU-enabled system (e.g., RTX 3050 or better)
+- GPU-enabled system for better performance (e.g., RTX 3050 or better)
 - [Ollama installed](https://ollama.com) and running
 - Basic Python environment setup
 
