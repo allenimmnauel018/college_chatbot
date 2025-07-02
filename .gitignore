@@ -33,3 +33,5 @@ Thumbs.db
 
 # ollama model downloads (optional)
 ~/.ollama/
+
+.env
