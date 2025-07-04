@@ -2,16 +2,15 @@
 from langchain_core.language_models.llms import LLM
 from typing import Optional, List
 from google import genai
-from google.genai import types
+from google.genai import types # Keep this for other type definitions if used
 from dotenv import load_dotenv
 from pydantic import PrivateAttr
 import os
-import time # Import time for measuring duration
-import logging # Import logging for more structured output
+import time
+import logging
 
-# Configure logging for this module
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__) # Get a logger for this module
+logger = logging.getLogger(__name__)
 
 class GeminiLLM(LLM):
     model: str = "gemini-2.5-pro"
@@ -34,6 +33,7 @@ class GeminiLLM(LLM):
 
 
     def _call(self, prompt: str, stop: Optional[List[str]] = None) -> str:
+        time.sleep(0.5)
         logger.info(f"[_call] Received prompt (first 100 chars): {prompt[:100]}...")
         contents = [
             types.Content(
@@ -54,13 +54,9 @@ class GeminiLLM(LLM):
                 config=config
             )
 
-            # Iterate through the stream to get chunks
             for i, chunk in enumerate(response_stream):
-                # Using hasattr and getattr to safely check for text attribute
                 if hasattr(chunk, 'text') and chunk.text:
                     full_response_text += chunk.text
-                    # Log chunks to see if data is coming through
-                    # logger.debug(f"[_call] Received chunk {i}: {chunk.text[:50]}...") # Use debug for less verbosity
                 else:
                     logger.warning(f"[_call] Received empty or non-text chunk {i}: {chunk}")
 
@@ -68,13 +64,13 @@ class GeminiLLM(LLM):
             logger.info(f"[_call] Stream completed. Total duration: {end_time - start_time:.2f} seconds.")
             logger.info(f"[_call] Full response text (first 200 chars): {full_response_text[:200]}...")
 
-        except genai.types.APIError as api_error:
+        # --- FIX STARTS HERE ---
+        except genai.APIError as api_error: # Changed from genai.types.APIError
+        # --- FIX ENDS HERE ---
             logger.error(f"[_call] Gemini API Error: {api_error.message} (Code: {api_error.code})")
-            # You might want to re-raise or return a specific error message
             return f"Error from Gemini API: {api_error.message}"
         except Exception as e:
             logger.error(f"[_call] Unexpected error during Gemini API call: {e}")
-            # You might want to re-raise or return a specific error message
             return f"An unexpected error occurred: {e}"
 
         return full_response_text
