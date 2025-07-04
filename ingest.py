@@ -22,7 +22,7 @@ def load_and_embed_all(pdf_dir="data", db_path="vector_db"):
 
     print(f"✅ Total chunks: {len(all_docs)}")
 
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")    
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     db = FAISS.from_documents(all_docs, embeddings)
     db.save_local(db_path)
     print(f"📦 Vector DB saved at: {db_path}")
