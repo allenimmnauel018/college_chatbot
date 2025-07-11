@@ -2,10 +2,11 @@ streamlit
 langchain
 langchain-community
 langchain-huggingface
-langchain-ollama
 faiss-cpu
 sentence-transformers
 transformers
 torch
 pypdf
-pyspellchecker
+python-dotenv
+google-genai
+

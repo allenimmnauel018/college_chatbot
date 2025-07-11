@@ -1,47 +1,56 @@
 # college_chatbot
-An AI-powered chatbot that helps students get accurate, document-based answers to questions related to academics, curriculum, fees, credits, and more. Built using **LangChain**, **FAISS**, **Ollama**, and **Streamlit**.
+An AI-powered chatbot that helps students get accurate, document-based answers to questions related to academics, curriculum, fees, credits, and more. This version is powered by **Gemini Pro**, **LangChain**, **FAISS**, and **Streamlit** — enabling fast, scalable inference using Google’s cloud-hosted LLMs.
 
 ## ✅ Features
 
-- 💬 Ask questions in natural language
-- 📄 Retrieves answers from college documents (PDFs) using LangChain RetrievalQA
-- ⚡ Runs **locally** using lightweight `phi` model via [Ollama](https://ollama.com/) (`phi` model)
-- 🔎 FAISS-powered document search
-- 🔤 Spell-check support
-- 🤖 “I don’t know” fallback for unknown queries
-- 📁 Shows document sources with every answer
-- 🧠 (Upcoming) Suggested/auto-generated question interface
+- Ask academic questions in natural language
+
+- Retrieves answers from college documents (PDFs)
+
+- Uses FAISS for fast similarity-based document search
+
+- Gemini Pro API as the backend LLM (via LangChain wrapper)
+
+- Source tracking – shows which file/website the answer came from
+
+- Graceful fallback – responds “I don’t know” when unsure
+
+- Simple, clean Streamlit UI
 
 ## 🧰 Tech Stack
 
-| Component       | Technology                                 |
-|-----------------|--------------------------------------------|
-| LLM             | `phi` via Ollama                           |
-| Embeddings      | `all-MiniLM-L6-v2` (Hugging Face)          |
-| Vector Store    | FAISS                                      |
-| Frameworks      | LangChain, Streamlit                       |
-| Tools           | PyTorch, Sentence Transformers             |
+| Component    | Technology                            |
+| ------------ | ------------------------------------- |
+| LLM          | `Gemini Pro 2.5` via Google GenAI API |
+| Embeddings   | `all-MiniLM-L6-v2` (Hugging Face)     |
+| Vector Store | FAISS                                 |
+| Frameworks   | LangChain, Streamlit                  |
+| Tools        | Python, Sentence Transformers         |
+
 
 
  ## 📂 Project Structure
 ```
 college_chatbot/
-├── data/ # College documents (PDF)
-├── app.py # Streamlit interface
-├── chatbot.py # LLM + RetrievalQA chain
-├── ingest.py # PDF to vector DB embedding
-├── vector_db/ # Saved FAISS index
+├── data/                # PDF documents for retrieval
+├── app.py               # Streamlit interface
+├── chatbot.py           # Gemini LLM + LangChain RetrievalQA
+├── gemini_llm.py        # Custom wrapper for Google Gemini
+├── ingest.py            # PDF to vector DB embedding using FAISS
+├── vector_db/           # Stored FAISS index
 ├── requirements.txt
-├── LICENSE
 └── README.md
+
 ```
 ## 🧪 How to Run
 ### 🔧 Prerequisites
 
 - Python 3.10+
-- GPU-enabled system(e.g., RTX 3050 or better)(Optional)
-- [Ollama installed](https://ollama.com) and running
 - Basic Python environment setup
+- A valid Google Gemini API key in .env file:
+```
+GEMINI_API_KEY=your_api_key_here
+```
 
 ### 📦 Installation
 
@@ -57,7 +66,6 @@ python -c "from ingest import load_and_embed_all; load_and_embed_all()"
 ### 🧠 Launch Chatbot
 
 ```bash
-ollama run phi
 streamlit run app.py
 ```
 
