@@ -1,48 +1,72 @@
+# chatbot.py
+import os
+import torch
+import logging
 from langchain.chains import RetrievalQA
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.prompts import PromptTemplate
-from gemini_llm import GeminiLLM  # Custom Gemini LLM
+from gemini_llm import GeminiLLM
 
-# Removed 'model_name="gemini"' from the signature as it was unused
-def build_chain(db_path="vector_db"):
-    # Load embeddings model
-    # Removed model_kwargs={"device": "cuda"} for broader portability.
-    # It will default to CPU if CUDA is not available or explicitly specified.
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
-    )
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    # Load FAISS vector store
-    db = FAISS.load_local(
-        db_path,
-        embeddings,
-        allow_dangerous_deserialization=True
-    )
+def build_chain(db_path: str = "vector_db") -> RetrievalQA | None:
+    """
+    Builds a RetrievalQA chain using FAISS vector store, HuggingFace embeddings, and Gemini LLM.
 
-    retriever = db.as_retriever(search_kwargs={"k": 4})
+    Args:
+        db_path (str): Path to the FAISS vector database.
 
-    # Initialize custom Gemini model
-    llm = GeminiLLM()
+    Returns:
+        RetrievalQA | None: The QA chain if successful, else None.
+    """
+    try:
+        if not os.path.exists(db_path):
+            logging.warning(f"📂 Vector DB not found at '{db_path}'. Please run ingestion first.")
+            return None
 
-    # Prompt template
-    prompt = PromptTemplate.from_template(
-        """You are a college helpdesk assistant.
-Use the following extracted document content to answer the user question.
-If the answer is not in the documents or you don't know about it correctly, just say: "I don't know." Do NOT make up an answer.
+        # Setup embedding model
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        logging.info(f"🔌 Using device: {device}")
+        embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L12-v2",
+            model_kwargs={"device": device}
+        )
 
-Documents:
+        # Load vector DB
+        db = FAISS.load_local(db_path, embeddings, allow_dangerous_deserialization=True)
+        retriever = db.as_retriever(search_kwargs={"k": 8})
+
+        # Setup Gemini model
+        llm = GeminiLLM(model="gemini-2.5-pro")
+
+        # Prompt template
+        prompt = PromptTemplate.from_template("""
+You are a helpful AI assistant answering questions based on provided college data and website context.
+If the answer is not clearly stated in the context, say "I don't know".
+But if relevant information is partially present, try to answer concisely.
+
+
+Context:
 {context}
 
-Question: {question}
-Answer:"""
-    )
+User question:
+{question}
 
-    # Build RetrievalQA chain
-    return RetrievalQA.from_chain_type(
-        llm=llm,
-        retriever=retriever,
-        return_source_documents=True,
-        chain_type="stuff",
-        chain_type_kwargs={"prompt": prompt}
-    )
+Answer:""".strip())
+
+        # Build RetrievalQA chain
+        chain = RetrievalQA.from_chain_type(
+            llm=llm,
+            retriever=retriever,
+            return_source_documents=True,
+            chain_type="stuff",
+            chain_type_kwargs={"prompt": prompt}
+        )
+
+        logging.info("✅ Chatbot QA chain built successfully.")
+        return chain
+
+    except Exception as e:
+        logging.error(f"❌ Error building chatbot chain: {e}", exc_info=True)
+        return None
