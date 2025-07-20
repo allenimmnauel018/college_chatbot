@@ -1,12 +1,29 @@
+# Core
+fastapi
+uvicorn
 streamlit
+pydantic
+python-dotenv
+
+# LLM and Embeddings
 langchain
 langchain-community
 langchain-huggingface
-faiss-cpu
 sentence-transformers
-transformers
 torch
-pypdf
-python-dotenv
-google-genai
+google-generativeai
 
+# Vector Store
+chromadb
+duckdb
+
+# Crawler and Parsing
+httpx
+beautifulsoup4
+html2text
+
+# Neo4j for KG
+neo4j
+
+# Optional (logging, retry, etc.)
+tqdm

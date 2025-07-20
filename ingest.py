@@ -1,161 +1,106 @@
+import os
 import re
 import logging
-import requests
-from bs4 import BeautifulSoup
-from bs4.element import Tag
-from urllib.parse import urljoin, urlparse, urldefrag
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceEmbeddings
-from kg_builder import build_auto_kg
+import html2text
+import httpx
 import torch
+from bs4 import BeautifulSoup
+from langchain_chroma import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain.text_splitter import SpacyTextSplitter
+from chromadb import PersistentClient
 
-# Logging format
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+from kg_builder import build_auto_kg_with_fallback  # 👈 Add KG builder import
 
+# --- Logging ---
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+# --- Markdown Converter ---
+md_converter = html2text.HTML2Text()
+md_converter.ignore_links = True
+md_converter.ignore_images = True
+md_converter.ignore_emphasis = True
+
+# --- Clean text ---
 def clean_text(text: str) -> str:
-    return re.sub(r"\s+", " ", text.encode("utf-8", "replace").decode("utf-8")).strip()
+    return re.sub(r"\s+", " ", text).strip()
 
-def fetch_site_data_all(
+# --- Fetch homepage text only ---
+def fetch_homepage_text(base_url: str) -> str:
+    try:
+        response = httpx.get(base_url, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        # Remove headers, footers, and unnecessary tags
+        for tag in soup(["header", "footer", "script", "style", "nav"]):
+            tag.decompose()
+
+        markdown = md_converter.handle(str(soup))
+        markdown = clean_text(markdown)
+        lines = [line for line in markdown.splitlines() if len(line.strip()) > 30]
+
+        return "\n".join(lines[:150])  # Limit to top 150 lines
+    except Exception as e:
+        logging.error(f"❌ Failed to fetch homepage: {e}")
+        return ""
+
+# --- Main ingestion function ---
+def run_ingestion(
     base_url: str = "https://www.aucet.in/",
-    max_pages: int = 30,
-    max_lines_per_page: int = 100
-) -> list:
-    visited = set()
-    to_visit = [base_url]
-    all_docs = []
+    db_path: str = "chroma_db",
+    max_chunks: int = 1000
+):
+    logging.info("🚀 Starting homepage-only ingestion (text only)...")
 
-    DOCUMENT_EXTENSIONS = [".pdf", ".doc", ".docx"]
-    IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"]
-
-    logging.info(f"🌐 Starting crawl at: {base_url}")
-    while to_visit and len(visited) < max_pages:
-        current_url = to_visit.pop()
-        normalized_url = urldefrag(current_url)[0].rstrip("/")
-
-        if normalized_url in visited or not normalized_url.rstrip("/").startswith(base_url.rstrip("/")):
-            logging.debug(f"⛔ Skipping already visited or external URL: {normalized_url}")
-            continue
-
-        try:
-            response = requests.get(normalized_url, timeout=10)
-            response.encoding = response.apparent_encoding
-            response.raise_for_status()
-        except Exception as e:
-            logging.warning(f"⚠️ Failed to fetch {normalized_url}: {e}")
-            continue
-
-        visited.add(normalized_url)
-        soup = BeautifulSoup(response.content, "html.parser")
-        text_elements, doc_links, image_links = [], [], []
-
-        # Meta description
-        meta = soup.find("meta", attrs={"name": "description"})
-        if isinstance(meta, Tag):
-            content = meta.get("content", "")
-            if isinstance(content, str) and content.strip():
-                text_elements.append("Meta Description: " + clean_text(content))
-
-        # Visible text from tags
-        for tag in soup.find_all(["header", "footer", "p", "div", "span", "td", "a", "h1", "h2", "h3", "ul", "li", "section"]):
-            if isinstance(tag, Tag):
-                raw = tag.get_text(separator=" ", strip=True)
-                if raw:
-                    cleaned = clean_text(raw)
-                    if len(cleaned) > 30:
-                        text_elements.append(cleaned)
-
-        # Crawl and classify links
-        for link in soup.find_all("a", href=True):
-            if isinstance(link, Tag):
-                href = link.get("href")
-                if isinstance(href, str):
-                    href = href.strip()
-                    if not href or href.startswith("#") or href.lower().startswith("mailto:"):
-                        continue
-
-                    try:
-                        full_url = urldefrag(urljoin(normalized_url + "/", href))[0].rstrip("/")
-                    except Exception as e:
-                        logging.warning(f"Skipping bad href '{href}': {e}")
-                        continue
-
-                    if any(full_url.lower().endswith(ext) for ext in IMAGE_EXTENSIONS):
-                        image_links.append(full_url)
-                        continue
-                    elif any(full_url.lower().endswith(ext) for ext in DOCUMENT_EXTENSIONS):
-                        doc_links.append(full_url)
-                    elif full_url.startswith(base_url) and full_url not in visited and full_url not in to_visit:
-                        logging.debug(f"🔗 Queued for crawling: {full_url}")
-                        to_visit.append(full_url)
-
-        # Append collected links
-        if doc_links:
-            text_elements.append("📎 Documents:\n" + "\n".join([f"[Download Document]({url})" for url in doc_links]))
-        if image_links:
-            text_elements.append("🖼️ Images:\n" + "\n".join([f"<img src='{url}' width='200'>" for url in image_links]))
-
-        text_elements = list(dict.fromkeys(text_elements))[:max_lines_per_page]
-
-        if text_elements:
-            path = urlparse(normalized_url).path or "/"
-            all_docs.append({
-                "source": path,
-                "text": "\n".join(text_elements),
-                "documents": doc_links,
-                "images": image_links
-            })
-            logging.info(f"✅ Processed: {path} → {len(text_elements)} lines, {len(doc_links)} docs, {len(image_links)} imgs")
-
-    logging.info(f"✅ Finished crawling {len(visited)} pages. Collected {len(all_docs)} pages of content.")
-    return all_docs
-
-def load_and_embed_all(
-    base_url: str = "https://www.aucet.in/",
-    db_path: str = "vector_db",
-    max_chunks: int = 300,
-    max_pages: int = 30,
-    max_lines_per_page: int = 100
-) -> None:
-    logging.info("🚀 Starting embedding and KG building process...")
-    splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=100)
-    all_chunks = []
-
-    web_pages = fetch_site_data_all(base_url, max_pages, max_lines_per_page)
-
-    for page in web_pages:
-        chunks = splitter.create_documents([page["text"]])
-        for chunk in chunks:
-            chunk.metadata["source"] = page["source"]
-            if page.get("documents"):
-                chunk.metadata["documents"] = page["documents"]
-            if page.get("images"):
-                chunk.metadata["images"] = page["images"]
-        all_chunks.extend(chunks)
-        logging.info(f"📄 Chunked: {page['source']} → {len(chunks)} chunks")
-
-    logging.info(f"🧠 Total chunks before trimming: {len(all_chunks)}")
-    if len(all_chunks) > max_chunks:
-        logging.warning(f"⚠ Chunk limit hit: Trimming {len(all_chunks)} → {max_chunks}")
-        all_chunks = all_chunks[:max_chunks]
-
-    if not all_chunks:
-        logging.warning("🚫 No chunks available to embed.")
+    # --- Step 1: Fetch homepage text ---
+    raw_text = fetch_homepage_text(base_url)
+    if not raw_text:
+        logging.warning("🚫 No homepage content extracted.")
         return
 
-    logging.info("🧩 Building Knowledge Graph...")
-    build_auto_kg(all_chunks)
+    # --- Step 2: Split into chunks ---
+    splitter = SpacyTextSplitter(chunk_size=300, chunk_overlap=50)
+    documents = splitter.create_documents([raw_text])
 
-    logging.info("🔗 Generating embeddings and saving to FAISS...")
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L12-v2",
-        model_kwargs={"device": device}
-    )
+    for doc in documents:
+        doc.metadata["source"] = "/"  # all from homepage
 
+    if len(documents) > max_chunks:
+        logging.warning(f"⚠ Trimming chunks: {len(documents)} → {max_chunks}")
+        documents = documents[:max_chunks]
+
+    # --- Step 3: Build Neo4j Knowledge Graph ---
     try:
-        db = FAISS.from_documents(all_chunks, embeddings)
-        db.save_local(db_path)
-        logging.info(f"📦 Vector DB saved at: {db_path}")
+        logging.info("🧠 Extracting triplets and inserting into Neo4j...")
+        inserted = build_auto_kg_with_fallback(documents)
+        logging.info(f"✅ Inserted {inserted} triplets into Neo4j.")
     except Exception as e:
-        logging.error(f"❌ Error saving vector DB: {e}")
+        logging.error(f"❌ Failed to build Neo4j KG: {e}")
+
+    # --- Step 4: Save embeddings to ChromaDB ---
+    try:
+        logging.info("💾 Embedding and saving to ChromaDB...")
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        embeddings = HuggingFaceEmbeddings(
+            model_name="intfloat/e5-large",
+            model_kwargs={"device": device}
+        )
+
+        chroma_client = PersistentClient(path=db_path)
+        db = Chroma(
+            client=chroma_client,
+            collection_name="college_helpdesk",
+            embedding_function=embeddings
+        )
+        db.add_documents(documents)
+
+        logging.info(f"✅ Vector DB saved at: {db_path}")
+        logging.info(f"📄 Chunks saved: {len(documents)}")
+    except Exception as e:
+        logging.error(f"❌ Failed to save to ChromaDB: {e}")
+
+
+# --- Run if main ---
+if __name__ == "__main__":
+    run_ingestion()
