@@ -151,6 +151,7 @@ streamlit run app.py
                            +-------------+
 
 
+
 ## 🧠 Future Enhancements
 
 * Add direct Cypher query support
@@ -164,11 +165,15 @@ streamlit run app.py
 
 * Built with ❤️ using LangChain, Gemini, FAISS, Neo4j, and Streamlit
 
+---
+
 ## 🙏 Acknowledgments
 
 - Academic materials and guidance from mentors
 - Reference books used: LangChain Essentials, Mastering LLMs with LangChain, etc.
 - Built during a 6-week InternPro Internship
+
+---
 
 ## 📜 License
 
