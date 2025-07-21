@@ -72,25 +72,19 @@ class GeminiLLM(LLM):
         logging.info(f"✅ GeminiLLM initialized using model: {self.model} and key index {(_key_index - 1) % len(API_KEYS)}")
 
     def _call(self, prompt: str, stop: Optional[List[str]] = None) -> str:
-        """
-        Generate a response using Gemini. Retry on rate-limit. Fallback to Pro if Flash fails.
-        """
         models_to_try = [self.model]
         if self.model.startswith("gemini-2.5-flash"):
+            logging.info("🔁 Falling back to gemini-2.5-pro if flash fails.")
             models_to_try.append("gemini-2.5-pro")
 
-        max_attempts = len(API_KEYS)
-        retry_delay = 5  # seconds
         timeout_limit = 30  # seconds max per streaming attempt
 
         for model_name in models_to_try:
-            attempt = 0
-            while attempt < max_attempts:
+            for attempt in range(len(API_KEYS)):
                 try:
                     api_key = self._api_key or "UNKNOWN"
                     usage_count = _key_usage.get(api_key, 0)
                     logging.info(f"🧠 Calling {model_name} | API key index: {(_key_index - 1) % len(API_KEYS)} | Usage: {usage_count}")
-
 
                     part = types.Part.from_text(text=prompt)
                     content = types.Content(role="user", parts=[part])
@@ -103,40 +97,29 @@ class GeminiLLM(LLM):
                     )
 
                     chunks = []
-                    try:
-                        for chunk in response:
-                            if hasattr(chunk, "text") and chunk.text:
-                                chunks.append(chunk.text)
-                            if time.time() - start_time > timeout_limit:
-                                raise TimeoutError("⚠️ Streaming timeout")
-                    except Exception as stream_error:
-                        logging.warning(f"⚠️ Stream error: {stream_error}")
-                        break
-
+                    for chunk in response:
+                        if hasattr(chunk, "text") and chunk.text:
+                            chunks.append(chunk.text)
+                        if time.time() - start_time > timeout_limit:
+                            raise TimeoutError("⚠️ Streaming timeout")
 
                     result = "".join(chunks).strip()
-
                     if not result:
-                        raise ValueError("⚠️ Gemini returned empty response.")
-
+                        logging.warning("⚠️ Gemini returned empty response (not an error).")
                     return result
 
                 except Exception as e:
-                    if "RESOURCE_EXHAUSTED" in str(e) or "429" in str(e):
-                        logging.warning(f"⚠️ Quota exceeded for key. Rotating key...")
-                        attempt += 1
-                        self._api_key = get_next_api_key()
-                        self._client = genai.Client(api_key=self._api_key)
-                    elif isinstance(e, TimeoutError):
-                        logging.warning(str(e))
-                        attempt += 1
+                    message = str(e)
+                    if "RESOURCE_EXHAUSTED" in message or "429" in message:
+                        logging.warning("⚠️ Quota exceeded for key. Rotating key...")
                         self._api_key = get_next_api_key()
                         self._client = genai.Client(api_key=self._api_key)
                     else:
-                        logging.warning(f"❌ Unexpected error on {model_name}: {e}")
-                        break  # Try next model in fallback
+                        logging.warning(f"❌ Error during call to {model_name}: {e}")
+                        break  # Don't retry the same model with other keys
 
-        raise RuntimeError("❌ All Gemini API keys or models exhausted.")
+        raise RuntimeError("❌ All Gemini API keys or models failed.")
+
 
     @property
     def _llm_type(self) -> str:
