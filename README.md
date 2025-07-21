@@ -217,16 +217,16 @@ streamlit run app.py
                    | KG-Aware Retriever            |
                    | (Semantic + Entity Filtering) |
                    +-------------------------------+
-                      |             | 
-        +------------------+     +--------------+
-        |  KG Entity Match  |     |  FAISS Fallback |
-        |     (Neo4j)       |     | (Semantic Search) |
-        +------------------+     +--------------+
-                      \\             //
-                       +-------------+
-                       | Gemini LLM  |
-                       | Final Answer|
-                       +-------------+
+                      |                       | 
+            +-------------------+     +------------------+
+            |  KG Entity Match  |     |  FAISS Fallback  |
+            |     (Neo4j)       |     | (Semantic Search)|
+            +-------------------+     +------------------+
+                          \\             //
+                           +-------------+
+                           | Gemini LLM  |
+                           | Final Answer|
+                           +-------------+
 
 
 ## 🧠 Future Enhancements
